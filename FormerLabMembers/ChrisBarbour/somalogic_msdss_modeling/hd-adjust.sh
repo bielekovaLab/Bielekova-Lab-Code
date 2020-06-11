@@ -1,0 +1,1 @@
+sbatch --cpus-per-task=2 --mem=32g --partition=quick,norm --time=4:00:00 --job-name=hd_adjust hd-adjust-batch.sh

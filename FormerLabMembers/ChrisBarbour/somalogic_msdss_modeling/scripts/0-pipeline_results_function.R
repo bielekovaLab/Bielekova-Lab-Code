@@ -1,0 +1,103 @@
+library(readr, quietly = TRUE)
+library(readxl, quietly = TRUE)
+library(dplyr, quietly = TRUE)
+library(tidyr, quietly = TRUE)
+library(lubridate, quietly = TRUE)
+library(purrr, quietly = TRUE)
+library(bindrcpp, quietly = TRUE)
+library(data.table, quietly = TRUE)
+library(foreach, quietly = TRUE)
+library(stringr, quietly = TRUE)
+library(ranger)
+library(parallel)
+library(doParallel)
+library(batch)
+library(ggplot2)
+
+split_rat <- function(rat){
+  split_list <- unlist(strsplit(rat,"[/]"))
+  v1 <- first(split_list)
+  v2 <- last(split_list)
+  return(c(v1,v2))
+}
+
+pipeline_results <- function(which_response,plot_title="",iters = 0:110,plat="1.3K",ratios=TRUE,best_iter=NULL){
+  # which_response <- "msdss_old"
+  # plot_title <- "Adjusted-NeurEx/Age (Outliers Removed)"
+  # iters <- 0:118
+  # platform <- "1.1K"
+ 
+  if(is.null(which_response)){stop("Pick a folder corresponding to a response variable!")}
+  path1 <- paste("./scripts/",which_response,"/iter",sep="")
+  path2 <- paste("./results/figs/",which_response,sep="")
+  path3 <- paste("./results/data/",which_response,sep="")
+  grab_oob <- function(i){
+    return(as.numeric(readLines(paste(path1,i,"_oob_results.txt",sep=""))[-1]))
+  }
+  grab_cor <- function(i){
+    return(as.numeric(readLines(paste(path1,i,"_oob_cor_results.txt",sep=""))[-1]))
+  }
+  grab_ccc <- function(i){
+    return(as.numeric(readLines(paste(path1,i,"_oob_ccc_results.txt",sep=""))[-1]))
+  }
+  length_rat <- function(i){
+    length(readLines(paste(path1,i,"_ratios.txt",sep="")))
+  }
+  out_data <- tibble(mse_vec = lapply(iters,grab_oob),
+                     cor_vec = lapply(iters,grab_cor),
+                     ccc_vec = lapply(iters,grab_ccc),
+                     num_rat = sapply(iters,length_rat),
+                     iter = iters + 1)
+  out_data <- out_data %>% 
+    mutate(sims = lapply(iter,function(i){1:length(mse_vec[[i]])}))
+  out_data <- out_data %>% 
+    unnest()
+  out_data <- out_data %>% 
+    mutate(num_rat = as.factor(num_rat))
+  mean_out_data <- out_data %>% 
+    select(-sims) %>% 
+    group_by(num_rat,iter) %>% 
+    summarise_all(funs(mean,sd)) %>% 
+    ungroup() %>% 
+    mutate(iter_rev = 1:max(iter))
+  if(is.null(best_iter)){print(best_iter <- with(mean_out_data,iter[which.min(mse_vec_mean)]))}
+  p <- out_data %>%
+    ggplot(aes(x=iter,y=mse_vec)) +
+    geom_jitter(height=0,width=0) +
+    theme_bw() +
+    xlab("Iteration") +
+    ylab("OOB MSE (Reverse)") +
+    scale_y_reverse() +
+    ggtitle(plot_title) +
+    theme(plot.title = element_text(hjust=0.5),
+          axis.text.x = element_text(vjust=-.01,angle=45)) +
+    geom_errorbar(data=mean_out_data,aes(ymin=mse_vec_mean-2*mse_vec_sd,
+                                         ymax=mse_vec_mean+2*mse_vec_sd,
+                                         x=iter),
+                  width=0.1,inherit.aes = FALSE) +
+    geom_point(data=mean_out_data,mapping=aes(x=iter,y=mse_vec_mean),colour="red",size=1) +
+    geom_line(data=mean_out_data,mapping=aes(x=iter,y=mse_vec_mean)) +
+   geom_vline(xintercept=best_iter)
+  # print(best_iter <- with(mean_out_data,iter[which.max(ccc_vec_mean)]))
+  # p <- out_data %>%
+  #   ggplot(aes(x=iter,y=ccc_vec)) +
+  #   geom_jitter(height=0,width=0) +
+  #   theme_bw() +
+  #   xlab("Iteration") +
+  #   ylab("CCC") +
+  #   ggtitle(plot_title) +
+  #   theme(plot.title = element_text(hjust=0.5),
+  #         axis.text.x = element_text(vjust=-.01,angle=45)) +
+  #   geom_errorbar(data=mean_out_data,aes(ymin=ccc_vec_mean-2*ccc_vec_sd,
+  #                                        ymax=ccc_vec_mean+2*ccc_vec_sd,
+  #                                        x=iter),
+  #                 width=0.1,inherit.aes = FALSE) +
+  #   geom_point(data=mean_out_data,mapping=aes(x=iter,y=ccc_vec_mean),colour="red",size=1) +
+  #   geom_line(data=mean_out_data,mapping=aes(x=iter,y=ccc_vec_mean)) +
+  #   geom_vline(xintercept=best_iter)
+  if(ratios==TRUE){write_csv(clean_rat(readLines(paste(path1,best_iter,"_ratios.txt",sep="")),platform=plat),
+                             my_filename(paste(path3,"_",best_iter,"_ratios.csv",sep="")))}
+  if(ratios==FALSE){write_csv(clean_marker(readLines(paste(path1,best_iter,"_ratios.txt",sep="")),platform=plat),
+                              my_filename(paste(path3,"_",best_iter,"_ratios.csv",sep="")))}
+  return(p)
+}
