@@ -1,6 +1,8 @@
 # Hello! Thank you for reading our smartphone SDMT paper!
 And for coming by to check out our data and scripts. Below are some information to help you get started.
 
+**If you are a reviewer, please email Vanessa Morgan at vanessa.morgan@nih.gov for access to the raw data files. The raw files will be added for public view after the paper is published. Thank you**
+
 You will need R to run all of these scripts. The best way to get everything is to clone the repository. Follow this tutorial if you've never cloned a repository before (https://www.youtube.com/watch?v=YxZ8J2rqhEM).
 
 This was run on R version 3.5.1 (2018-07-02). Package versions can be found in the paper's reference 12-31.
