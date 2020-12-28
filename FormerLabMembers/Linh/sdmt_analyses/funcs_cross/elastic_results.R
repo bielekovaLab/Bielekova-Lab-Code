@@ -126,6 +126,9 @@ if(test_type == "App"){
   print(CCC.train$`rho.c`)
 
   print(summary(pred.test))
+  print(psych::corr.test(data.frame(out.test$predictions.test, out.test$App), 
+                         method = "spearman",
+                         adjust = "none"), short = FALSE)
   print(CCC.test$`rho.c`)
 }
 
@@ -140,6 +143,9 @@ else if(test_type == "Written"){
   print(CCC.train$`rho.c`)
 
   print(summary(pred.test))
+  print(psych::corr.test(data.frame(out.test$predictions.test, out.test$Written), 
+                         method = "spearman",
+                         adjust = "none"), short = FALSE)
   print(CCC.test$`rho.c`)
 
 }
